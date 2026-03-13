@@ -1,21 +1,11 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
-export async function POST(request) {
-  console.log("--- 1. INCOMING TRANSMISSION DETECTED ---");
-
+export async function POST(req) {
   try {
-    // Check if we are receiving the data
-    const { name, email, message } = await request.json();
-    console.log("2. Data received from form:", { name, email });
+    const { name, email, message } = await req.json();
 
-    // Check if the .env file is actually loading
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log("❌ 3. CRITICAL ERROR: .env variables are missing or undefined!");
-      return NextResponse.json({ message: "Missing Environment Variables" }, { status: 500 });
-    }
-
-    console.log("3. Environment variables found. Creating transporter...");
+    // Initialize the transporter with Vercel Environment Variables
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -24,21 +14,36 @@ export async function POST(request) {
       },
     });
 
+    // Verify connection configuration
+    await transporter.verify();
+
     const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: `New Transmission from ${name}`,
-      text: `Message from ${email}:\n\n${message}`,
+      from: `"${name}" <${process.env.EMAIL_USER}>`,
+      to: 'VJ912004@gmail.com', // Your receiving email
+      replyTo: email, // So you can reply directly to the sender
+      subject: `PORTFOLIO_OS: New Message from ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+      html: `
+        <div style="font-family: monospace; background: #03050a; color: #fff; padding: 20px; border: 1px solid #00f2ff;">
+          <h2 style="color: #00f2ff; border-bottom: 1px solid #00f2ff; padding-bottom: 10px;">INCOMING_TRANSMISSION</h2>
+          <p><strong>SENDER:</strong> ${name}</p>
+          <p><strong>REPLY_TO:</strong> ${email}</p>
+          <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05);">
+            ${message}
+          </div>
+        </div>
+      `,
     };
 
-    console.log("4. Attempting to send email via Google servers...");
     await transporter.sendMail(mailOptions);
     
-    console.log("5. ✅ SUCCESS: Email Sent!");
-    return NextResponse.json({ message: "Success" }, { status: 200 });
+    return NextResponse.json({ success: true }, { status: 200 });
 
   } catch (error) {
-    console.error("❌ ERROR CAUGHT:", error.message);
-    return NextResponse.json({ message: "Failed" }, { status: 500 });
+    console.error("TRANSMISSION_FAILURE:", error.message);
+    return NextResponse.json(
+      { success: false, error: error.message }, 
+      { status: 500 }
+    );
   }
 }
